@@ -94,8 +94,8 @@ def train(args):
             img_rec = recon_net(img_ano)
             imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
-            mask_out = discr_net(imgs_ano_rec)
-            mask_sm = torch.softmax(mask_out, dim=1)
+            mask_pred = discr_net(imgs_ano_rec)
+            mask_sm = torch.softmax(mask_pred, dim=1)
             mask_prob = mask_sm[:, 1:, ...]
 
             loss_l2 = fn_l2(img_rec, img)
@@ -116,6 +116,15 @@ def train(args):
                 loss_ssim.item(), loss_focal.item()
             ])
 
+            if epoch % 20 == 0 and i % 20 == 0:
+                img_name = batch["name"]
+                logger.info("Save images...")
+                logger.images("img", img, img_name, epoch, i)
+                logger.images("img_ano", img_ano, img_name, epoch, i)
+                logger.images("img_rec", img_rec, img_name, epoch, i)
+                logger.images("mask", mask, img_name, epoch, i)
+                logger.images("mask_prob", mask_prob, img_name, epoch, i)
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -125,10 +134,10 @@ def train(args):
             losses).mean(axis=0).tolist()
         losses.clear()
 
-        logger.scalar("loss", avg, epoch)
-        logger.scalar("loss_l2", avg_l2, epoch)
-        logger.scalar("loss_ssim", avg_ssim, epoch)
-        logger.scalar("loss_focal", avg_focal, epoch)
+        logger.scalars("loss", [epoch, avg])
+        logger.scalars("loss_l2", [epoch, avg_l2])
+        logger.scalars("loss_ssim", [epoch, avg_ssim])
+        logger.scalars("loss_focal", [epoch, avg_focal])
 
         scheduler.step()
 

@@ -1,3 +1,7 @@
+import cv2
+import torch
+import numpy as np
+
 import os
 import logging
 from datetime import datetime
@@ -89,14 +93,26 @@ class Logger(object):
             self.setup_logger(name)
         return self.loggers[name]
 
-    def scalar(self, name, value, step=None):
+    def scalars(self, name, values):
         logger = self.get_logger(name)
-        if isinstance(value, (list, tuple)):
-            value = ",".join(map(str, value))
-        if step is not None:
-            logger.info(f"{step},{value}")
-        else:
-            logger.info(str(value))
+        if isinstance(values, (list, tuple)):
+            values = ",".join(map(str, values))
+        logger.info(str(values))
+
+    def images(self, name, imgs, img_names, epoch="x", batch="x"):
+        if isinstance(imgs, torch.Tensor):
+            imgs = imgs.cpu().detach().numpy() * 256
+            imgs = imgs.clip(0, 255).astype(np.uint8).transpose(0, 2, 3, 1)
+            if imgs.shape[-1] == 3:
+                imgs = imgs[..., [2, 1, 0]]
+
+        for i in range(imgs.shape[0]):
+            img_dir = os.path.join(self.log_dir, name)
+            img_path = os.path.join(
+                img_dir, f"{img_names[i]}_{epoch}_{batch}.png")
+            if not os.path.exists(img_dir):
+                os.makedirs(img_dir)
+            cv2.imwrite(img_path, imgs[i])
 
     def info(self, *messages):
         self.root_logger.info(", ".join(messages))

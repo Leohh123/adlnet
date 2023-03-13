@@ -100,6 +100,12 @@ def test(args):
         # ax[1][1].imshow(mask_prob[0, ...].cpu().detach().numpy().transpose(1, 2, 0))
         # plt.show()
 
+        img_name = batch["name"]
+        logger.images("img_ano", img_ano, img_name, batch=i)
+        logger.images("img_rec", img_rec, img_name, batch=i)
+        logger.images("mask", mask, img_name, batch=i)
+        logger.images("mask_out", mask_prob, img_name, batch=i)
+
         # TODO: logger with periodic sampling
         if i % 10 == 0:
             logger.info(f"{i * 100 / len(dataset):.0f}%")
@@ -119,7 +125,7 @@ def test(args):
     ap_px = average_precision_score(masks_gt, masks_out)
 
     logger.info("Test complete")
-    logger.scalar("result", [auc_img, ap_img, auc_px, ap_px])
+    logger.scalars("result", [auc_img, ap_img, auc_px, ap_px])
     logger.info(
         f"AUC Image: {auc_img}",
         f"AP Image: {ap_img}",

@@ -28,6 +28,8 @@ class MVTecTrainDataset(Dataset):
 
     def __getitem__(self, index):
         img_path = self.img_paths[index]
+        img_filename = os.path.basename(img_path)
+        img_name = os.path.splitext(img_filename)[0]
         # print("getitem", img_path)
 
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)[:, :, [2, 1, 0]]
@@ -54,7 +56,8 @@ class MVTecTrainDataset(Dataset):
             "img_ano": img_ano,
             "mask": mask,
             "tag": tag,
-            "label": int(tag != "good")
+            "label": int(tag != "good"),
+            "name": img_name
         }
 
 
@@ -75,6 +78,7 @@ class MVTecTestDataset(Dataset):
         img_path = self.img_paths[index]
         dir_path, img_filename = os.path.split(img_path)
         tag = os.path.basename(dir_path)
+        img_name = os.path.splitext(img_filename)[0]
 
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)[:, :, [2, 1, 0]]
         # img = read_image(img_path, ImageReadMode.RGB)
@@ -114,5 +118,6 @@ class MVTecTestDataset(Dataset):
             "img_ano": img,
             "mask": mask,
             "tag": tag,
-            "label": int(tag != "good")
+            "label": int(tag != "good"),
+            "name": img_name
         }
