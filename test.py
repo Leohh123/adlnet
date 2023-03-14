@@ -74,7 +74,8 @@ def test(args):
         mask = batch["mask"].cuda()
         label = batch["label"].cuda()
 
-        img_rec = recon_net(img_ano)
+        img_out = recon_net(img_ano)
+        img_rec = img_ano - img_out
         imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
         mask_pred = discr_net(imgs_ano_rec)
@@ -105,6 +106,10 @@ def test(args):
         logger.images("img_rec", img_rec, img_name, batch=i)
         logger.images("mask", mask, img_name, batch=i)
         logger.images("mask_out", mask_prob, img_name, batch=i)
+
+        # def h(x): return x[~x.isnan()]
+
+        # print(h(img_ano), h(img_out), h(img_rec), h(mask), h(mask_prob))
 
         # TODO: logger with periodic sampling
         if i % 10 == 0:

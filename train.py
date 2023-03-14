@@ -91,7 +91,8 @@ def train(args):
             img_ano = batch["img_ano"].cuda()
             mask = batch["mask"].cuda()
 
-            img_rec = recon_net(img_ano)
+            img_out = recon_net(img_ano)
+            img_rec = img_ano - img_out
             imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
             mask_pred = discr_net(imgs_ano_rec)
@@ -104,6 +105,18 @@ def train(args):
 
             # TODO: focal loss balancing hyperparameter
             loss = loss_l2 + Const.LAMBDA * loss_ssim + 2 * loss_focal
+
+            if loss.isnan().any():
+                logger.info("NaN!!!!!!!!")
+                torch.save(
+                    recon_net.state_dict(),
+                    os.path.join(args.checkpoint_dir, f"{model_name}.nan.rec")
+                )
+                torch.save(
+                    discr_net.state_dict(),
+                    os.path.join(args.checkpoint_dir, f"{model_name}.nan.seg")
+                )
+                exit(0)
 
             logger.info(
                 f"loss: {loss.item()}",
