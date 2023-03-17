@@ -2,10 +2,10 @@ import torch
 import torch.nn.functional as F
 
 
-def focal_loss(input, target, alpha=0.25, gamma=2.0):
+def focal_loss(input, target, alpha=0.25, gamma=2.0, epsilon=1e-5):
     at = target * alpha + (1.0 - target) * (1.0 - alpha)
     pt = target * input + (1.0 - target) * (1.0 - input)
-    loss = -at * (1.0 - pt) ** gamma * pt.log()
+    loss = -at * (1.0 - pt) ** gamma * (pt + epsilon).log()
     return loss.mean()
 
 

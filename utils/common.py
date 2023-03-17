@@ -109,10 +109,10 @@ class Logger(object):
         for i in range(imgs.shape[0]):
             img_dir = os.path.join(self.log_dir, name)
             img_path = os.path.join(
-                img_dir, f"{img_names[i]}_{epoch}_{batch}.png")
+                img_dir, f"{epoch}_{batch}_{img_names[i]}.png")
             if not os.path.exists(img_dir):
                 os.makedirs(img_dir)
             cv2.imwrite(img_path, imgs[i])
 
     def info(self, *messages):
-        self.root_logger.info(", ".join(messages))
+        self.root_logger.info(", ".join(map(str, messages)))
