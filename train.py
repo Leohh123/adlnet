@@ -101,7 +101,7 @@ def train(args):
 
             loss_l2 = fn_l2(img_rec, img)
             loss_ssim = ssim_loss(img_rec, img)
-            loss_focal = focal_loss(mask_prob, mask)
+            loss_focal = focal_loss(mask_prob, mask, alpha=0.5)
 
             # TODO: focal loss balancing hyperparameter
             loss = loss_l2 + Const.LAMBDA * loss_ssim + 2 * loss_focal
