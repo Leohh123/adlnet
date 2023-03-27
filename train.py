@@ -99,8 +99,11 @@ def train(args):
             mask_sm = torch.softmax(mask_pred, dim=1)
             mask_prob = mask_sm[:, 1:, ...]
 
-            loss_l2 = fn_l2(img_rec, img)
-            loss_ssim = ssim_loss(img_rec, img)
+            m_img = img * mask
+            m_img_rec = img_rec * mask
+
+            loss_l2 = fn_l2(m_img_rec, m_img)
+            loss_ssim = ssim_loss(m_img_rec, m_img)
             loss_focal = focal_loss(mask_prob, mask, alpha=0.5)
 
             # TODO: focal loss balancing hyperparameter
@@ -135,6 +138,8 @@ def train(args):
                 logger.images("img", img, img_name, epoch, i)
                 logger.images("img_ano", img_ano, img_name, epoch, i)
                 logger.images("img_rec", img_rec, img_name, epoch, i)
+                logger.images("m_img", m_img, img_name, epoch, i)
+                logger.images("m_img_rec", m_img_rec, img_name, epoch, i)
                 logger.images("mask", mask, img_name, epoch, i)
                 logger.images("mask_prob", mask_prob, img_name, epoch, i)
 
