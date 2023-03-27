@@ -3,6 +3,7 @@ dataset/
 checkpoint/
 log/
 /tmp/
+/result/
 
 *_test.py
 *_test/

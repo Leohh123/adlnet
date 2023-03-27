@@ -51,7 +51,8 @@ class AnomalyGenerator(object):
             resize_shape, [scale_x, scale_y])
         perlin_noise = self.rotate(image=perlin_noise)
         # TODO: should .astype(np.uint8)?
-        perlin_mask = (perlin_noise > Const.PERLIN_THRESHOLD).astype(np.uint8)
+        perlin_mask = perlin_noise > Const.PERLIN_THRESHOLD
+        perlin_mask = (perlin_mask * 255).astype(np.uint8)
 
         return perlin_mask
 
