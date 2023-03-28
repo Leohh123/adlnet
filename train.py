@@ -102,6 +102,15 @@ def train(args):
             m_img = img * mask
             m_img_rec = img_rec * mask
 
+            # print(
+            #     batch["tag"],
+            #     img.dtype, img_ano.dtype, mask.dtype,
+            #     img_out.dtype, img_rec.dtype, imgs_ano_rec.dtype,
+            #     mask_pred.dtype, mask_sm.dtype, mask_prob.dtype,
+            #     m_img.dtype, m_img_rec.dtype
+            # )
+
+            # TODO: bigger loss for small area of anomoly
             loss_l2 = fn_l2(m_img_rec, m_img)
             loss_ssim = ssim_loss(m_img_rec, m_img)
             loss_focal = focal_loss(mask_prob, mask, alpha=0.5)
