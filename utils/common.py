@@ -42,30 +42,32 @@ class Logger(object):
     DEFAULT_DATEFMT = "%m-%d %H:%M:%S"
 
     log_dir = None
+    root_logger = None
 
     def __init__(self, app_name):
         self.loggers = {}
         self.app_name = app_name
 
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
+        if Logger.root_logger is None:
+            Logger.root_logger = logging.getLogger()
+            Logger.root_logger.setLevel(logging.DEBUG)
 
-        formatter = logging.Formatter(
-            self.DEFAULT_FORMAT, self.DEFAULT_DATEFMT)
+            formatter = logging.Formatter(
+                self.DEFAULT_FORMAT, self.DEFAULT_DATEFMT)
 
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        root_logger.addHandler(stream_handler)
+            stream_handler = logging.StreamHandler()
+            stream_handler.setFormatter(formatter)
+            Logger.root_logger.addHandler(stream_handler)
 
-        log_path = os.path.join(self.log_dir, "console.log")
-        file_handler = logging.FileHandler(log_path)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
+            log_path = os.path.join(self.log_dir, "console.log")
+            file_handler = logging.FileHandler(log_path)
+            file_handler.setFormatter(formatter)
+            Logger.root_logger.addHandler(file_handler)
 
-        self.root_logger = logging.LoggerAdapter(root_logger, {
-            "app_name": app_name,
-            "logger_name": "default"
-        })
+            Logger.root_logger = logging.LoggerAdapter(Logger.root_logger, {
+                "app_name": app_name,
+                "logger_name": "default"
+            })
 
     @classmethod
     def config(cls, action, args, model_name):
@@ -115,4 +117,4 @@ class Logger(object):
             cv2.imwrite(img_path, imgs[i])
 
     def info(self, *messages):
-        self.root_logger.info(", ".join(map(str, messages)))
+        Logger.root_logger.info(", ".join(map(str, messages)))

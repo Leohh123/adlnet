@@ -7,21 +7,34 @@ from imgaug import augmenters as iaa
 
 import os
 import glob
+from random import random
 
-from .common import Const
+from .common import Const, Logger
 from .anomaly_generator import AnomalyGenerator
 
 
 class MVTecTrainDataset(Dataset):
     def __init__(self, class_dir, dtd_dir, resize_shape=None, transform=None):
+        self.logger = Logger(__file__)
         self.class_dir = class_dir
         self.img_paths = sorted(
             glob.glob(os.path.join(class_dir, "train/good/*.png")))
         self.ano_gen = AnomalyGenerator(dtd_dir)
         self.resize_shape = resize_shape
         self.transform = transform
-        self.rotate = iaa.Sometimes(
-            Const.TRAIN_ROTEATE_PROP, iaa.Affine(rotate=(-90, 90)))
+        img_outline_path = os.path.join(class_dir, "train/outline.png")
+        if os.path.exists(img_outline_path):
+            self.img_outline = cv2.imread(
+                img_outline_path, cv2.IMREAD_GRAYSCALE)
+            if self.resize_shape:
+                self.img_outline = cv2.resize(
+                    self.img_outline, dsize=list(reversed(self.resize_shape)))
+            self.logger.info(f"Outlined with image {img_outline_path}")
+        else:
+            self.img_outline = None
+            self.logger.info("No outline")
+        # self.rotate = iaa.Sometimes(
+        #     Const.TRAIN_ROTEATE_PROP, iaa.Affine(rotate=(-90, 90)))
 
     def __len__(self):
         return len(self.img_paths)
@@ -40,10 +53,19 @@ class MVTecTrainDataset(Dataset):
         # img = img.numpy().transpose(1, 2, 0)
 
         # print("img.shape", img.shape)
-        img = self.rotate(image=img)
+        # img = self.rotate(image=img)
         # print("img(rotated).shape", img.shape)
 
-        img_ano, mask, tag = self.ano_gen.generate(img)
+        img_ano, mask, tag = self.ano_gen.generate(img, self.img_outline)
+
+        rotate_prob = random()
+        if rotate_prob < Const.TRAIN_ROTEATE_PROP:
+            angle = random() * 180.0 - 90.0
+            rotate = iaa.Affine(rotate=angle)
+            # img = rotate(img)
+            # img_ano = rotate(img_ano)
+            # mask = rotate(mask)
+            img, img_ano, mask = rotate(images=[img, img_ano, mask])
         # print(img_ano.shape, mask.shape)
 
         if self.transform:

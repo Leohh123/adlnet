@@ -55,13 +55,16 @@ class AnomalyGenerator(object):
 
         return perlin_mask
 
-    def generate(self, img):
+    def generate(self, img, img_outline):
         if random.random() < Const.TRAIN_GOOD_PROP:
             mask = np.zeros(img.shape[:2], dtype=np.uint8)
             mask = np.expand_dims(mask, axis=2)
             img_ano = img
         else:
             mask = self.gen_mask(img.shape[:2])
+            # print(type(img_outline))
+            if img_outline is not None:
+                mask *= img_outline
             mask = np.expand_dims(mask, axis=2)
             ano = self.gen_ano(img.shape[:2])
             beta = random.random() * Const.BETA_MAX
