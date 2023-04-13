@@ -43,7 +43,7 @@ class AnomalyGenerator(object):
         texture_aug = seq(image=texture)
         return texture_aug
 
-    def gen_mask(self, resize_shape):
+    def gen_mask_01(self, resize_shape):
         scale_x = 2 ** random.randint(*Const.PERLIN_SCALE_RANGE)
         scale_y = 2 ** random.randint(*Const.PERLIN_SCALE_RANGE)
 
@@ -55,21 +55,20 @@ class AnomalyGenerator(object):
 
         return perlin_mask
 
-    def generate(self, img, img_outline):
+    def generate(self, img):
         if random.random() < Const.TRAIN_GOOD_PROP:
             mask = np.zeros(img.shape[:2], dtype=np.uint8)
             mask = np.expand_dims(mask, axis=2)
             img_ano = img
         else:
-            mask = self.gen_mask(img.shape[:2])
-            # print(type(img_outline))
-            if img_outline is not None:
-                mask *= img_outline
+            mask = self.gen_mask_01(img.shape[:2])
             mask = np.expand_dims(mask, axis=2)
             ano = self.gen_ano(img.shape[:2])
             beta = random.random() * Const.BETA_MAX
             img_ano = ((1 - mask) * img + (1 - beta) * mask * img +
                        beta * mask * ano).astype(np.uint8)
+            mask = mask * 255
 
         tag = "good" if np.sum(mask) == 0 else "bad"
+        # print("genersate", mask.dtype, mask.max(), img_ano.dtype, img_ano.max(), img_ano.mean())
         return img_ano, mask, tag
