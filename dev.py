@@ -161,6 +161,9 @@ def dev(args):
             f"AP Pixel: {ap_px}"
         )
 
+        recon_net.train()
+        discr_net.train()
+
     optimizer = torch.optim.Adam([
         {"params": recon_net.parameters(), "lr": args.lr},
         {"params": discr_net.parameters(), "lr": args.lr}
@@ -173,9 +176,6 @@ def dev(args):
     logger.info(f"Start training ({class_name}): {model_name}")
 
     for epoch in range(args.epochs):
-        recon_net.train()
-        discr_net.train()
-
         logger.info(f"Epoch {epoch}")
         losses = []
 
