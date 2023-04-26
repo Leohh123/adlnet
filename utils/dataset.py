@@ -14,7 +14,7 @@ from .anomaly_generator import AnomalyGenerator
 
 
 class MVTecTrainDataset(Dataset):
-    def __init__(self, class_dir, dtd_dir, resize_shape=None, transform=None):
+    def __init__(self, class_dir, dtd_dir, outlined=False, resize_shape=None, transform=None):
         self.logger = Logger(__file__)
         self.class_dir = class_dir
         self.img_paths = sorted(
@@ -23,7 +23,7 @@ class MVTecTrainDataset(Dataset):
         self.resize_shape = resize_shape
         self.transform = transform
         img_outline_path = os.path.join(class_dir, "train/outline.png")
-        if os.path.exists(img_outline_path):
+        if os.path.exists(img_outline_path) and outlined:
             self.img_outline = cv2.imread(
                 img_outline_path, cv2.IMREAD_GRAYSCALE)
             if self.resize_shape:

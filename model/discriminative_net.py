@@ -1,8 +1,23 @@
 import torch
 import torch.nn as nn
+from model.mrunet import MultiResUnet
 
 
 class DiscriminativeSubNetwork(nn.Module):
+    def __init__(self, in_channels=6, out_channels=2):
+        super().__init__()
+        self.mrunet = MultiResUnet(
+            input_channels=in_channels,
+            num_classes=out_channels - 1,
+        )
+
+    def forward(self, x):
+        res = self.mrunet(x)
+        # print(x.shape, res.shape)
+        return res
+
+
+class DiscriminativeSubNetwork_OLD(nn.Module):
     def __init__(self, in_channels=6, out_channels=2, base=64):
         super().__init__()
         self.encoder = DiscriminativeEncoder(in_channels, base)
@@ -11,6 +26,8 @@ class DiscriminativeSubNetwork(nn.Module):
     def forward(self, x):
         bs = self.encoder(x)
         mask_out = self.decoder(*bs)
+        # print(x.shape, mask_out.shape)
+        # output: torch.Size([4, 6, 256, 256]) torch.Size([4, 2, 256, 256])
         return mask_out
 
 
