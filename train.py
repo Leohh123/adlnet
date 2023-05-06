@@ -8,7 +8,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import os
 import argparse
 
-from utils.common import Const, Logger, get_model_info, init_weights
+from utils.common import Const, Logger, Picker, get_model_info, init_weights
 from utils.dataset import MVTecTrainDataset, MVTecTestDataset
 from model.reconstructive_net import ReconstructiveSubNetwork
 from model.discriminative_net import DiscriminativeSubNetwork
@@ -74,6 +74,15 @@ def train(
             os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
         )
 
+    rules = [
+        ["ws", lambda auc_img, auc_px, ap_px: (auc_img + auc_px) * 5 + ap_px],
+        ["sum", lambda auc_img, auc_px, ap_px: auc_img + auc_px + ap_px],
+        ["auc-img", lambda auc_img, auc_px, ap_px: auc_img],
+        ["auc-px", lambda auc_img, auc_px, ap_px: auc_px],
+        ["ap-px", lambda auc_img, auc_px, ap_px: ap_px]
+    ]
+    pk = Picker(rules)
+
     logger.info(f"Start training: {logger.model_name}")
 
     for epoch in range(1, args.epochs + 1):
@@ -136,16 +145,23 @@ def train(
 
         scheduler.step()
 
-        save_model("last")
-
         # test
-        if epoch % 50 == 0:
+        if epoch % 2 == 0:
             auc_img, ap_img, auc_px, ap_px = test(
                 test_dataset, test_dataloader, recon_net, discr_net, False)
             recon_net.train()
             discr_net.train()
             logger.scalars(
                 "result", [epoch, auc_img, ap_img, auc_px, ap_px])
+            for name, fn in rules:
+                if pk.check(name, epoch, auc_img, auc_px, ap_px):
+                    save_model(name)
+                    logger.info(f"save_model with tag: {name}")
+            save_model("last")
+
+    for name, fn in rules:
+        logger.scalars("epoch", [name, pk.epochs[name]])
+    save_model("last")
 
     logger.info(f"Training complete: {logger.model_name}")
 

@@ -153,3 +153,28 @@ class Logger(object):
 
     def info(self, *messages):
         self.default_logger.info(", ".join(map(str, messages)))
+
+
+class Picker(object):
+    def __init__(self, rule_list):
+        self.rules = {}
+        self.scores = {}
+        self.epochs = {}
+
+        for args in rule_list:
+            self.add_rule(*args)
+
+    def add_rule(self, name, fn=lambda x: x, min_val=0.0):
+        assert name not in self.rules, "The rule already exists"
+        self.rules[name] = fn
+        self.scores[name] = min_val
+        self.epochs[name] = -1
+
+    def check(self, name, epoch, *args):
+        assert name in self.rules, "The rule does not exist"
+        val = self.rules[name](*args)
+        if val > self.scores[name]:
+            self.scores[name] = val
+            self.epochs[name] = epoch
+            return True
+        return False
