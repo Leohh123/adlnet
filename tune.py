@@ -8,7 +8,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import os
 import argparse
 
-from utils.common import Const, Logger, get_model_info, init_weights
+from utils.common import Const, Logger, get_model_info, get_class_name
 from utils.dataset import MVTecTrainDataset, MVTecTestDataset
 from model.reconstructive_net import ReconstructiveSubNetwork
 from model.discriminative_net import DiscriminativeSubNetwork
@@ -23,13 +23,13 @@ def get_args():
     parser.add_argument("--gpu", "-g", dest="gpu", metavar="G",
                         type=int, default=0, help="GPU ID")
     parser.add_argument("--epochs", "-e", dest="epochs", metavar="E",
-                        type=int, default=700, help="number of epochs")
+                        type=int, default=500, help="number of epochs")
     parser.add_argument("--batch-size", "-b", dest="batch_size", metavar="B",
                         type=int, default=8, help="batch size")
     parser.add_argument("--learning-rate", "-l", dest="lr", metavar="LR",
-                        type=float, default=1e-4, help="learning rate")
-    parser.add_argument("--class", "-c", dest="classno", metavar="C",
-                        type=int, default=-1, help="training class number")
+                        type=float, default=1e-6, help="learning rate")
+    parser.add_argument("--model", "-m", dest="model", metavar="M",
+                        type=str, required=True, help="path to model file (either .rec or .seg file)")
     parser.add_argument("--mvtec-dir", "-md", dest="mvtec_dir", metavar="MD",
                         type=str, default="./dataset/mvtec", help="MVTec AD dataset directory")
     parser.add_argument("--dtd-dir", "-dd", dest="dtd_dir", metavar="DD",
@@ -43,7 +43,7 @@ def get_args():
     return parser.parse_args()
 
 
-def train(
+def tune(
     train_dataset: MVTecTrainDataset,
     train_dataloader: DataLoader,
     test_dataset: MVTecTestDataset,
@@ -53,28 +53,22 @@ def train(
 ):
     logger = Logger(__file__)
 
-    recon_net.train()
+    recon_net.eval()
     discr_net.train()
 
     optimizer = torch.optim.Adam([
-        {"params": recon_net.parameters(), "lr": args.lr},
         {"params": discr_net.parameters(), "lr": args.lr}
     ])
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        optimizer, [args.epochs*0.6, args.epochs*0.8], gamma=0.2)
-    fn_l2 = torch.nn.MSELoss()
+        optimizer, [args.epochs*0.3, args.epochs*0.6], gamma=0.2)
 
     def save_model(tag):
         torch.save(
-            recon_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.rec")
-        )
-        torch.save(
             discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
+            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}_tune.seg")
         )
 
-    logger.info(f"Start training: {logger.model_name}")
+    logger.info(f"Start tuning: {logger.model_name}@{logger.model_tag}")
 
     for epoch in range(1, args.epochs + 1):
         logger.info(f"Epoch {epoch}")
@@ -92,26 +86,16 @@ def train(
             mask_sm = torch.softmax(mask_pred, dim=1)
             mask_prob = mask_sm[:, 1:, ...]
 
-            loss_l2 = fn_l2(img_rec, img)
-            loss_ssim = ssim_loss(img_rec, img)
-            loss_focal = focal_loss(mask_prob, mask)
-
-            loss = loss_l2 + Const.W_SSIM * loss_ssim + Const.W_FOCAL * loss_focal
+            loss = focal_loss(mask_prob, mask)
 
             logger.info(
                 f"epoch: {epoch}",
                 f"batch: {i}",
-                f"loss: {loss.item()}",
-                f"l2: {loss_l2.item()}",
-                f"ssim: {loss_ssim.item()}",
-                f"focal: {loss_focal.item()}"
+                f"loss: {loss.item()}"
             )
-            losses.append([
-                loss.item(), loss_l2.item(),
-                loss_ssim.item(), loss_focal.item()
-            ])
+            losses.append(loss.item())
 
-            if (epoch == 1 and i % 5 == 0) or (epoch % 20 == 0 and i % 20 == 0):
+            if epoch % 20 == 0 and i % 20 == 0:
                 img_name = batch["name"]
                 logger.info("Save images...")
                 logger.images("img", img, img_name, epoch, i)
@@ -125,14 +109,10 @@ def train(
             optimizer.step()
 
         # print(f"epoch {epoch}: avg_loss = {loss_count / cnt}")
-        avg, avg_l2, avg_ssim, avg_focal = np.array(
-            losses).mean(axis=0).tolist()
+        avg_loss = np.array(losses).mean()
         losses.clear()
 
-        logger.scalars("loss", [epoch, avg])
-        logger.scalars("loss_l2", [epoch, avg_l2])
-        logger.scalars("loss_ssim", [epoch, avg_ssim])
-        logger.scalars("loss_focal", [epoch, avg_focal])
+        logger.scalars("loss", [epoch, avg_loss])
 
         scheduler.step()
 
@@ -142,22 +122,21 @@ def train(
         if epoch % 50 == 0:
             auc_img, ap_img, auc_px, ap_px = test(
                 test_dataset, test_dataloader, recon_net, discr_net, False)
-            recon_net.train()
             discr_net.train()
             logger.scalars(
-                "result", [epoch, auc_img, ap_img, auc_px, ap_px])
+                "result_tune", [epoch, auc_img, ap_img, auc_px, ap_px])
 
-    logger.info(f"Training complete: {logger.model_name}")
+    logger.info(f"Tuning complete: {logger.model_name}@{logger.model_tag}")
 
 
 if __name__ == "__main__":
     args = get_args()
 
-    class_name = Const.CLASS_NAMES[args.classno]
+    class_name = get_class_name(args)
     class_dir = os.path.join(args.mvtec_dir, class_name)
-    model_name = get_model_info(args)
+    model_dir, model_name, model_tag = get_model_info(args)
 
-    Logger.config("train", args, model_name)
+    Logger.config("tune", args, model_name, model_tag)
 
     train_dataset = MVTecTrainDataset(
         class_dir=class_dir,
@@ -185,12 +164,14 @@ if __name__ == "__main__":
 
     with torch.cuda.device(args.gpu):
         recon_net = ReconstructiveSubNetwork().cuda()
-        recon_net.apply(init_weights)
+        recon_net.load_state_dict(torch.load(
+            os.path.join(model_dir, f"{model_name}@{model_tag}.rec")))
 
         discr_net = DiscriminativeSubNetwork().cuda()
-        discr_net.apply(init_weights)
+        discr_net.load_state_dict(torch.load(
+            os.path.join(model_dir, f"{model_name}@{model_tag}.seg")))
 
-        train(
+        tune(
             train_dataset, train_dataloader,
             test_dataset, test_dataloader,
             recon_net, discr_net

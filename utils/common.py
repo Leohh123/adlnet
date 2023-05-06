@@ -17,16 +17,18 @@ class Const(object):
     PERLIN_THRESHOLD = 0.5
     TRAIN_GOOD_PROP = 0.5
     TRAIN_ROTEATE_PROP = 0.3
-    BETA_MAX = 0.8
-    LAMBDA = 1.0
+    BETA_MAX = 1.0
+    W_SSIM = 1.0
+    W_FOCAL = 2.0
     AVG_POOL_FILTER_SIZE = 21
 
 
-def get_path(args):
+def get_model_info(args):
     if hasattr(args, "model"):
         dir, file = os.path.split(args.model)
-        name = os.path.splitext(file)[0]
-        return dir, name
+        prefix = os.path.splitext(file)[0]
+        name, tag = prefix.split("@")
+        return dir, name, tag
 
     return "_".join([
         datetime.now().strftime("%m%d%H%M"),
@@ -37,53 +39,86 @@ def get_path(args):
     ])
 
 
+def get_class_name(args):
+    if hasattr(args, "classno") and args.classno is not None:
+        return Const.CLASS_NAMES[args.classno]
+    try:
+        return next(
+            s for s in Const.CLASS_NAMES
+            if args.model.find(s) != -1
+        )
+    except:
+        raise Exception("Invalid class name")
+
+
+def init_weights(m):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        m.weight.data.normal_(0.0, 0.02)
+    elif classname.find("BatchNorm") != -1:
+        m.weight.data.normal_(1.0, 0.02)
+        m.bias.data.fill_(0)
+
+
 class Logger(object):
-    DEFAULT_FORMAT = "[%(asctime)s %(app_name)s %(levelname)s] (%(logger_name)s) %(message)s"
+    DEFAULT_FORMAT = "[%(asctime)s %(src_name)s %(levelname)s] (%(logger_name)s) %(message)s"
     DEFAULT_DATEFMT = "%m-%d %H:%M:%S"
 
     log_dir = None
     root_logger = None
-
-    def __init__(self, app_name):
-        self.loggers = {}
-        self.app_name = app_name
-
-        if Logger.root_logger is None:
-            Logger.root_logger = logging.getLogger()
-            Logger.root_logger.setLevel(logging.DEBUG)
-
-            formatter = logging.Formatter(
-                self.DEFAULT_FORMAT, self.DEFAULT_DATEFMT)
-
-            stream_handler = logging.StreamHandler()
-            stream_handler.setFormatter(formatter)
-            Logger.root_logger.addHandler(stream_handler)
-
-            log_path = os.path.join(self.log_dir, "console.log")
-            file_handler = logging.FileHandler(log_path)
-            file_handler.setFormatter(formatter)
-            Logger.root_logger.addHandler(file_handler)
-
-            Logger.root_logger = logging.LoggerAdapter(Logger.root_logger, {
-                "app_name": app_name,
-                "logger_name": "default"
-            })
+    model_name = None
+    model_tag = None
 
     @classmethod
-    def config(cls, action, args, model_name):
+    def config(cls, action, args, model_name, model_tag=None):
+        cls.model_name = model_name
+        cls.model_tag = model_tag
         cls.log_dir = os.path.join(args.log_dir, model_name, action)
 
         if not os.path.exists(cls.log_dir):
             os.makedirs(cls.log_dir)
 
+        Logger.root_logger = logging.getLogger()
+        Logger.root_logger.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter(
+            cls.DEFAULT_FORMAT, cls.DEFAULT_DATEFMT)
+
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        Logger.root_logger.addHandler(stream_handler)
+
+        log_path = os.path.join(cls.log_dir, "console.log")
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(formatter)
+        Logger.root_logger.addHandler(file_handler)
+
+        Logger.root_logger = logging.LoggerAdapter(Logger.root_logger, {
+            "src_name": "root",
+            "logger_name": "default"
+        })
+
+    def __init__(self, src_name):
+        self.loggers = {}
+        self.src_name = src_name
+
+        self.default_logger = logging.getLogger(src_name)
+        self.default_logger = logging.LoggerAdapter(
+            self.default_logger, {
+                "src_name": src_name,
+                "logger_name": "default"
+            }
+        )
+
     def setup_logger(self, name):
+        logger = logging.getLogger(name)
+
         log_path = os.path.join(self.log_dir, f"{name}.csv")
         handler = logging.FileHandler(log_path)
-
-        logger = logging.getLogger(name)
         logger.addHandler(handler)
+
         logger = logging.LoggerAdapter(logger, {
-            "app_name": self.app_name,
+            "src_name": self.src_name,
             "logger_name": name
         })
 
@@ -117,4 +152,4 @@ class Logger(object):
             cv2.imwrite(img_path, imgs[i])
 
     def info(self, *messages):
-        Logger.root_logger.info(", ".join(map(str, messages)))
+        self.default_logger.info(", ".join(map(str, messages)))
