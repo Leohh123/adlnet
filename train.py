@@ -146,7 +146,7 @@ def train(
         scheduler.step()
 
         # test
-        if epoch % 2 == 0:
+        if epoch % 20 == 0:
             auc_img, ap_img, auc_px, ap_px = test(
                 test_dataset, test_dataloader, recon_net, discr_net, False)
             recon_net.train()
