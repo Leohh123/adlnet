@@ -111,7 +111,7 @@ if __name__ == "__main__":
     class_dir = os.path.join(args.mvtec_dir, class_name)
     model_dir, model_name, model_tag = get_model_info(args)
 
-    Logger.config("test", args, model_name, model_tag)
+    Logger.config(f"test@{model_tag}", args, model_name, model_tag)
 
     dataset = MVTecTestDataset(
         class_dir=class_dir,
