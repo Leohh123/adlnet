@@ -32,13 +32,13 @@ def get_args():
 def test(
     test_dataset: MVTecTestDataset,
     test_dataloader: DataLoader,
-    recon_net: ReconstructiveSubNetwork,
+    # recon_net: ReconstructiveSubNetwork,
     discr_net: DiscriminativeSubNetwork,
     log_img: bool = False
 ):
     logger = Logger(__file__)
 
-    recon_net.eval()
+    # recon_net.eval()
     discr_net.eval()
 
     scores_out, scores_gt = [], []
@@ -51,10 +51,10 @@ def test(
         mask = batch["mask"]
         label = batch["label"]
 
-        img_rec = recon_net(img_ano)
-        imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
+        # img_rec = recon_net(img_ano)
+        # imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
-        mask_pred = discr_net(imgs_ano_rec)
+        mask_pred = discr_net(img_ano)
         mask_sm = torch.softmax(mask_pred, dim=1)
         mask_prob = mask_sm[:, 1:, ...]
         masks_out.append(mask_prob.cpu().detach().numpy())
@@ -72,7 +72,7 @@ def test(
         if log_img:
             img_name = batch["name"]
             logger.images("img_ano", img_ano, img_name, batch=i)
-            logger.images("img_rec", img_rec, img_name, batch=i)
+            # logger.images("img_rec", img_rec, img_name, batch=i)
             logger.images("mask", mask, img_name, batch=i)
             logger.images("mask_out", mask_prob, img_name, batch=i)
 
@@ -125,12 +125,12 @@ if __name__ == "__main__":
     )
 
     with torch.cuda.device(args.gpu):
-        recon_net = ReconstructiveSubNetwork().cuda()
-        recon_net.load_state_dict(torch.load(
-            os.path.join(model_dir, f"{model_name}@{model_tag.removesuffix('_tune')}.rec")))
+        # recon_net = ReconstructiveSubNetwork().cuda()
+        # recon_net.load_state_dict(torch.load(
+        #     os.path.join(model_dir, f"{model_name}@{model_tag.removesuffix('_tune')}.rec")))
 
-        discr_net = DiscriminativeSubNetwork().cuda()
+        discr_net = DiscriminativeSubNetwork(in_channels=3).cuda()
         discr_net.load_state_dict(torch.load(
             os.path.join(model_dir, f"{model_name}@{model_tag}.seg")))
 
-        test(dataset, dataloader, recon_net, discr_net, True)
+        test(dataset, dataloader, discr_net, True)

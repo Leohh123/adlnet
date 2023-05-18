@@ -48,30 +48,24 @@ def train(
     train_dataloader: DataLoader,
     test_dataset: MVTecTestDataset,
     test_dataloader: DataLoader,
-    recon_net: ReconstructiveSubNetwork,
+    # recon_net: ReconstructiveSubNetwork,
     discr_net: DiscriminativeSubNetwork,
 ):
     logger = Logger(__file__)
 
-    recon_net.train()
     discr_net.train()
 
     optimizer = torch.optim.Adam([
-        {"params": recon_net.parameters(), "lr": args.lr},
         {"params": discr_net.parameters(), "lr": args.lr}
     ])
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer, [args.epochs*0.6, args.epochs*0.8], gamma=0.2)
-    fn_l2 = torch.nn.MSELoss()
+    # fn_l2 = torch.nn.MSELoss()
 
     def save_model(tag):
         torch.save(
-            recon_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.rec")
-        )
-        torch.save(
             discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
+            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}_norec.seg")
         )
 
     rules = [
@@ -94,38 +88,35 @@ def train(
             img_ano = batch["img_ano"].cuda()
             mask = batch["mask"].cuda()
 
-            img_rec = recon_net(img_ano)
-            imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
+            # img_rec = recon_net(img_ano)
+            # imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
-            mask_pred = discr_net(imgs_ano_rec)
+            mask_pred = discr_net(img_ano)
             mask_sm = torch.softmax(mask_pred, dim=1)
             mask_prob = mask_sm[:, 1:, ...]
 
-            loss_l2 = fn_l2(img_rec, img)
-            loss_ssim = ssim_loss(img_rec, img)
+            # loss_l2 = fn_l2(img_rec, img)
+            # loss_ssim = ssim_loss(img_rec, img)
             loss_focal = focal_loss(mask_prob, mask)
 
-            loss = loss_l2 + Const.W_SSIM * loss_ssim + Const.W_FOCAL * loss_focal
+            loss = loss_focal
 
             logger.info(
                 f"epoch: {epoch}",
                 f"batch: {i}",
                 f"loss: {loss.item()}",
-                f"l2: {loss_l2.item()}",
-                f"ssim: {loss_ssim.item()}",
-                f"focal: {loss_focal.item()}"
+                # f"l2: {loss_l2.item()}",
+                # f"ssim: {loss_ssim.item()}",
+                # f"focal: {loss_focal.item()}"
             )
-            losses.append([
-                loss.item(), loss_l2.item(),
-                loss_ssim.item(), loss_focal.item()
-            ])
+            losses.append(loss.item())
 
             if (epoch == 1 and i % 5 == 0) or (epoch % 20 == 0 and i % 20 == 0):
                 img_name = batch["name"]
                 logger.info("Save images...")
                 logger.images("img", img, img_name, epoch, i)
                 logger.images("img_ano", img_ano, img_name, epoch, i)
-                logger.images("img_rec", img_rec, img_name, epoch, i)
+                # logger.images("img_rec", img_rec, img_name, epoch, i)
                 logger.images("mask", mask, img_name, epoch, i)
                 logger.images("mask_prob", mask_prob, img_name, epoch, i)
 
@@ -134,22 +125,18 @@ def train(
             optimizer.step()
 
         # print(f"epoch {epoch}: avg_loss = {loss_count / cnt}")
-        avg, avg_l2, avg_ssim, avg_focal = np.array(
-            losses).mean(axis=0).tolist()
+        avg = np.array(losses).mean()
         losses.clear()
 
         logger.scalars("loss", [epoch, avg])
-        logger.scalars("loss_l2", [epoch, avg_l2])
-        logger.scalars("loss_ssim", [epoch, avg_ssim])
-        logger.scalars("loss_focal", [epoch, avg_focal])
 
         scheduler.step()
 
         # test
         if epoch % 20 == 0:
             auc_img, ap_img, auc_px, ap_px = test(
-                test_dataset, test_dataloader, recon_net, discr_net, False)
-            recon_net.train()
+                test_dataset, test_dataloader, discr_net, False)
+            # recon_net.train()
             discr_net.train()
             logger.scalars(
                 "result", [epoch, auc_img, ap_img, auc_px, ap_px])
@@ -200,14 +187,14 @@ if __name__ == "__main__":
     )
 
     with torch.cuda.device(args.gpu):
-        recon_net = ReconstructiveSubNetwork().cuda()
-        recon_net.apply(init_weights)
+        # recon_net = ReconstructiveSubNetwork().cuda()
+        # recon_net.apply(init_weights)
 
-        discr_net = DiscriminativeSubNetwork().cuda()
+        discr_net = DiscriminativeSubNetwork(in_channels=3).cuda()
         discr_net.apply(init_weights)
 
         train(
             train_dataset, train_dataloader,
             test_dataset, test_dataloader,
-            recon_net, discr_net
+            discr_net
         )
