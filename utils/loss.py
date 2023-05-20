@@ -21,7 +21,7 @@ def create_window(window_size):
     return win2d
 
 
-def ssim_loss(img1, img2, window_size=11):
+def ssim_loss(img1, img2, window_size=11, avg=True):
     padd = window_size // 2
     channel = img1.shape[1]
     win = create_window(window_size).to(img1.device)
@@ -45,4 +45,7 @@ def ssim_loss(img1, img2, window_size=11):
 
     ssim = (2 * mu1 * mu2 + c1) * (2 * sigma12 + c2) / \
         ((mu1 ** 2 + mu2 ** 2 + c1) * (sigma1_sq + sigma2_sq + c2))
-    return 1.0 - ssim.mean()
+
+    if avg:
+        return 1.0 - ssim.mean()
+    return 1.0 - ssim.mean(dim=1, keepdim=True)

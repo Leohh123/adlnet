@@ -10,6 +10,7 @@ import argparse
 
 from utils.common import Const, Logger, get_model_info, get_class_name
 from utils.dataset import MVTecTestDataset
+from utils.loss import ssim_loss
 from model.reconstructive_net import ReconstructiveSubNetwork
 from model.discriminative_net import DiscriminativeSubNetwork
 
@@ -33,13 +34,13 @@ def test(
     test_dataset: MVTecTestDataset,
     test_dataloader: DataLoader,
     recon_net: ReconstructiveSubNetwork,
-    discr_net: DiscriminativeSubNetwork,
+    # discr_net: DiscriminativeSubNetwork,
     log_img: bool = False
 ):
     logger = Logger(__file__)
 
     recon_net.eval()
-    discr_net.eval()
+    # discr_net.eval()
 
     scores_out, scores_gt = [], []
     masks_out, masks_gt = [], []
@@ -52,11 +53,14 @@ def test(
         label = batch["label"]
 
         img_rec = recon_net(img_ano)
-        imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
+        # imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
-        mask_pred = discr_net(imgs_ano_rec)
-        mask_sm = torch.softmax(mask_pred, dim=1)
-        mask_prob = mask_sm[:, 1:, ...]
+        # mask_pred = discr_net(imgs_ano_rec)
+        # mask_sm = torch.softmax(mask_pred, dim=1)
+        # mask_prob = mask_sm[:, 1:, ...]
+
+        mask_prob = ssim_loss(img_ano, img_rec, avg=False)
+
         masks_out.append(mask_prob.cpu().detach().numpy())
         masks_gt.append(mask.cpu().detach().numpy().astype(int))
 
@@ -129,8 +133,8 @@ if __name__ == "__main__":
         recon_net.load_state_dict(torch.load(
             os.path.join(model_dir, f"{model_name}@{model_tag.removesuffix('_tune')}.rec")))
 
-        discr_net = DiscriminativeSubNetwork().cuda()
-        discr_net.load_state_dict(torch.load(
-            os.path.join(model_dir, f"{model_name}@{model_tag}.seg")))
+        # discr_net = DiscriminativeSubNetwork().cuda()
+        # discr_net.load_state_dict(torch.load(
+        #     os.path.join(model_dir, f"{model_name}@{model_tag}.seg")))
 
-        test(dataset, dataloader, recon_net, discr_net, True)
+        test(dataset, dataloader, recon_net, True)

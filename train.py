@@ -49,16 +49,16 @@ def train(
     test_dataset: MVTecTestDataset,
     test_dataloader: DataLoader,
     recon_net: ReconstructiveSubNetwork,
-    discr_net: DiscriminativeSubNetwork,
+    # discr_net: DiscriminativeSubNetwork,
 ):
     logger = Logger(__file__)
 
     recon_net.train()
-    discr_net.train()
+    # discr_net.train()
 
     optimizer = torch.optim.Adam([
         {"params": recon_net.parameters(), "lr": args.lr},
-        {"params": discr_net.parameters(), "lr": args.lr}
+        # {"params": discr_net.parameters(), "lr": args.lr}
     ])
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer, [args.epochs*0.6, args.epochs*0.8], gamma=0.2)
@@ -67,12 +67,12 @@ def train(
     def save_model(tag):
         torch.save(
             recon_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.rec")
+            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}_noseg.rec")
         )
-        torch.save(
-            discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
-        )
+        # torch.save(
+        #     discr_net.state_dict(),
+        #     os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
+        # )
 
     rules = [
         ["ws", lambda auc_img, auc_px, ap_px: (auc_img + auc_px) * 5 + ap_px],
@@ -95,17 +95,17 @@ def train(
             mask = batch["mask"].cuda()
 
             img_rec = recon_net(img_ano)
-            imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
+            # imgs_ano_rec = torch.cat((img_ano, img_rec), dim=1)
 
-            mask_pred = discr_net(imgs_ano_rec)
-            mask_sm = torch.softmax(mask_pred, dim=1)
-            mask_prob = mask_sm[:, 1:, ...]
+            # mask_pred = discr_net(imgs_ano_rec)
+            # mask_sm = torch.softmax(mask_pred, dim=1)
+            # mask_prob = mask_sm[:, 1:, ...]
 
             loss_l2 = fn_l2(img_rec, img)
             loss_ssim = ssim_loss(img_rec, img)
-            loss_focal = focal_loss(mask_prob, mask)
+            # loss_focal = focal_loss(mask_prob, mask)
 
-            loss = loss_l2 + Const.W_SSIM * loss_ssim + Const.W_FOCAL * loss_focal
+            loss = loss_l2 + Const.W_SSIM * loss_ssim
 
             logger.info(
                 f"epoch: {epoch}",
@@ -113,11 +113,10 @@ def train(
                 f"loss: {loss.item()}",
                 f"l2: {loss_l2.item()}",
                 f"ssim: {loss_ssim.item()}",
-                f"focal: {loss_focal.item()}"
+                # f"focal: {loss_focal.item()}"
             )
             losses.append([
-                loss.item(), loss_l2.item(),
-                loss_ssim.item(), loss_focal.item()
+                loss.item(), loss_l2.item(), loss_ssim.item()
             ])
 
             if (epoch == 1 and i % 5 == 0) or (epoch % 20 == 0 and i % 20 == 0):
@@ -127,6 +126,7 @@ def train(
                 logger.images("img_ano", img_ano, img_name, epoch, i)
                 logger.images("img_rec", img_rec, img_name, epoch, i)
                 logger.images("mask", mask, img_name, epoch, i)
+                mask_prob = ssim_loss(img_ano, img_rec, avg=False)
                 logger.images("mask_prob", mask_prob, img_name, epoch, i)
 
             optimizer.zero_grad()
@@ -134,23 +134,23 @@ def train(
             optimizer.step()
 
         # print(f"epoch {epoch}: avg_loss = {loss_count / cnt}")
-        avg, avg_l2, avg_ssim, avg_focal = np.array(
+        avg, avg_l2, avg_ssim = np.array(
             losses).mean(axis=0).tolist()
         losses.clear()
 
         logger.scalars("loss", [epoch, avg])
         logger.scalars("loss_l2", [epoch, avg_l2])
         logger.scalars("loss_ssim", [epoch, avg_ssim])
-        logger.scalars("loss_focal", [epoch, avg_focal])
+        # logger.scalars("loss_focal", [epoch, avg_focal])
 
         scheduler.step()
 
         # test
         if epoch % 20 == 0:
             auc_img, ap_img, auc_px, ap_px = test(
-                test_dataset, test_dataloader, recon_net, discr_net, False)
+                test_dataset, test_dataloader, recon_net, False)
             recon_net.train()
-            discr_net.train()
+            # discr_net.train()
             logger.scalars(
                 "result", [epoch, auc_img, ap_img, auc_px, ap_px])
             for name, fn in rules:
@@ -203,11 +203,11 @@ if __name__ == "__main__":
         recon_net = ReconstructiveSubNetwork().cuda()
         recon_net.apply(init_weights)
 
-        discr_net = DiscriminativeSubNetwork().cuda()
-        discr_net.apply(init_weights)
+        # discr_net = DiscriminativeSubNetwork().cuda()
+        # discr_net.apply(init_weights)
 
         train(
             train_dataset, train_dataloader,
             test_dataset, test_dataloader,
-            recon_net, discr_net
+            recon_net
         )
