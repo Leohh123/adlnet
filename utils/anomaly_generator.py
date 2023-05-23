@@ -39,9 +39,9 @@ class AnomalyGenerator(object):
         # texture = read_image(texture_path, ImageReadMode.RGB)
         # texture = Resize(resize_shape)(texture).numpy().transpose(1, 2, 0)
 
-        seq = iaa.Sequential(random.sample(self.augmenters, 3))
-        texture_aug = seq(image=texture)
-        return texture_aug
+        # seq = iaa.Sequential(random.sample(self.augmenters, 3))
+        # texture_aug = seq(image=texture)
+        return texture
 
     def gen_mask_01(self, resize_shape):
         scale_x = 2 ** random.randint(*Const.PERLIN_SCALE_RANGE)
