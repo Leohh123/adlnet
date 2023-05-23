@@ -66,7 +66,8 @@ class AnomalyGenerator(object):
                 mask *= img_outline.astype(bool)
             mask = np.expand_dims(mask, axis=2)
             ano = self.gen_ano(img.shape[:2])
-            beta = random.random() * Const.BETA_MAX
+            # beta = random.random() * Const.BETA_MAX
+            beta = 1.0
             img_ano = ((1 - mask) * img + (1 - beta) * mask * img +
                        beta * mask * ano).astype(np.uint8)
             mask = mask * 255
