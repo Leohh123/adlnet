@@ -32,16 +32,20 @@ class AnomalyGenerator(object):
         self.rotate = iaa.Affine(rotate=(-90, 90))
 
     def gen_ano(self, resize_shape):
-        texture_path = random.choice(self.texture_paths)
+        # texture_path = random.choice(self.texture_paths)
 
-        texture = cv2.imread(texture_path, cv2.IMREAD_COLOR)[:, :, [2, 1, 0]]
-        texture = cv2.resize(texture, dsize=list(reversed(resize_shape)))
+        # texture = cv2.imread(texture_path, cv2.IMREAD_COLOR)[:, :, [2, 1, 0]]
+        # texture = cv2.resize(texture, dsize=list(reversed(resize_shape)))
         # texture = read_image(texture_path, ImageReadMode.RGB)
         # texture = Resize(resize_shape)(texture).numpy().transpose(1, 2, 0)
 
-        seq = iaa.Sequential(random.sample(self.augmenters, 3))
-        texture_aug = seq(image=texture)
-        return texture_aug
+        # seq = iaa.Sequential(random.sample(self.augmenters, 3))
+        # texture_aug = seq(image=texture)
+        # return texture_aug
+
+        color = np.array([random.randint(0, 255) for _ in range(3)])
+        texture = np.ones([*resize_shape, 3], dtype=np.uint8) * color
+        return texture
 
     def gen_mask_01(self, resize_shape):
         scale_x = 2 ** random.randint(*Const.PERLIN_SCALE_RANGE)
