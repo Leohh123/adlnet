@@ -47,12 +47,17 @@ class AnomalyGenerator(object):
         scale_x = 2 ** random.randint(*Const.PERLIN_SCALE_RANGE)
         scale_y = 2 ** random.randint(*Const.PERLIN_SCALE_RANGE)
 
-        perlin_noise = generate_perlin_noise_2d(
-            resize_shape, [scale_x, scale_y])
-        perlin_noise = self.rotate(image=perlin_noise)
-        perlin_mask = (perlin_noise > Const.PERLIN_THRESHOLD).astype(np.uint8)
+        # perlin_noise = generate_perlin_noise_2d(
+        #     resize_shape, [scale_x, scale_y])
+        # perlin_noise = self.rotate(image=perlin_noise)
+        # perlin_mask = (perlin_noise > Const.PERLIN_THRESHOLD).astype(np.uint8)
 
-        return perlin_mask
+        mask = np.zeros(resize_shape, dtype=np.uint8)
+        for i in range(random.randint(1, 5)):
+            x, y = [random.randint(0, resize_shape[j]) for j in range(2)]
+            mask[x-scale_x:x+scale_x, y-scale_y:y+scale_y] = 1
+
+        return mask
 
     def generate(self, img, img_outline):
         if random.random() < Const.TRAIN_GOOD_PROP:
