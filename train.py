@@ -67,11 +67,11 @@ def train(
     def save_model(tag):
         torch.save(
             recon_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.rec")
+            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}_nobeta.rec")
         )
         torch.save(
             discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
+            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}_nobeta.seg")
         )
 
     rules = [
