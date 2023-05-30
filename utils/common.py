@@ -24,15 +24,16 @@ class Const(object):
 
 
 def get_model_info(args):
-    if hasattr(args, "model"):
-        dir, file = os.path.split(args.model)
-        prefix = os.path.splitext(file)[0]
-        name, tag = prefix.split("@")
-        return dir, name, tag
+    dir, file = os.path.split(args.model)
+    prefix = os.path.splitext(file)[0]
+    name, tag = prefix.split("@")
+    return dir, name, tag
 
+
+def gen_model_name(args, class_name=None):
     return "_".join([
         datetime.now().strftime("%m%d%H%M"),
-        Const.CLASS_NAMES[args.classno],
+        class_name or Const.CLASS_NAMES[args.classno],
         str(args.epochs),
         str(args.batch_size),
         f"{args.lr:.1e}"

@@ -8,7 +8,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import os
 import argparse
 
-from utils.common import Const, Logger, Picker, get_model_info, init_weights
+from utils.common import Const, Logger, Picker, gen_model_name, init_weights
 from utils.dataset import MVTecTrainDataset, MVTecTestDataset
 from model.reconstructive_net import ReconstructiveSubNetwork
 from model.discriminative_net import DiscriminativeSubNetwork
@@ -23,9 +23,9 @@ def get_args():
     parser.add_argument("--gpu", "-g", dest="gpu", metavar="G",
                         type=int, default=0, help="GPU ID")
     parser.add_argument("--epochs", "-e", dest="epochs", metavar="E",
-                        type=int, default=700, help="number of epochs")
+                        type=int, default=1000, help="number of epochs")
     parser.add_argument("--batch-size", "-b", dest="batch_size", metavar="B",
-                        type=int, default=8, help="batch size")
+                        type=int, default=4, help="batch size")
     parser.add_argument("--learning-rate", "-l", dest="lr", metavar="LR",
                         type=float, default=1e-4, help="learning rate")
     parser.add_argument("--class", "-c", dest="classno", metavar="C",
@@ -67,11 +67,11 @@ def train(
     def save_model(tag):
         torch.save(
             recon_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.rec")
+            os.path.join(args.checkpoint_dir, f"{logger.model_name}@{tag}.rec")
         )
         torch.save(
             discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}.seg")
+            os.path.join(args.checkpoint_dir, f"{logger.model_name}@{tag}.seg")
         )
 
     rules = [
@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
     class_name = Const.CLASS_NAMES[args.classno]
     class_dir = os.path.join(args.mvtec_dir, class_name)
-    model_name = get_model_info(args)
+    model_name = gen_model_name(args)
 
     Logger.config("train", args, model_name)
 

@@ -8,7 +8,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import os
 import argparse
 
-from utils.common import Const, Logger, Picker, get_model_info, get_class_name
+from utils.common import Const, Logger, Picker, get_model_info, gen_model_name, get_class_name
 from utils.dataset import MVTecTrainDataset, MVTecTestDataset
 from model.reconstructive_net import ReconstructiveSubNetwork
 from model.discriminative_net import DiscriminativeSubNetwork
@@ -25,7 +25,7 @@ def get_args():
     parser.add_argument("--epochs", "-e", dest="epochs", metavar="E",
                         type=int, default=500, help="number of epochs")
     parser.add_argument("--batch-size", "-b", dest="batch_size", metavar="B",
-                        type=int, default=8, help="batch size")
+                        type=int, default=4, help="batch size")
     parser.add_argument("--learning-rate", "-l", dest="lr", metavar="LR",
                         type=float, default=1e-6, help="learning rate")
     parser.add_argument("--model", "-m", dest="model", metavar="M",
@@ -65,7 +65,7 @@ def tune(
     def save_model(tag):
         torch.save(
             discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{model_name}@{tag}_tune.seg")
+            os.path.join(args.checkpoint_dir, f"{logger.model_name}.seg")
         )
 
     rules = [
@@ -77,7 +77,7 @@ def tune(
     ]
     pk = Picker(rules)
 
-    logger.info(f"Start tuning: {logger.model_name}@{logger.model_tag}")
+    logger.info(f"Start tuning: {logger.model_name}")
 
     for epoch in range(1, args.epochs + 1):
         logger.info(f"Epoch {epoch}")
@@ -131,7 +131,7 @@ def tune(
                 test_dataset, test_dataloader, recon_net, discr_net, False)
             discr_net.train()
             logger.scalars(
-                "result_tune", [epoch, auc_img, ap_img, auc_px, ap_px])
+                "result", [epoch, auc_img, ap_img, auc_px, ap_px])
             for name, fn in rules:
                 if pk.check(name, epoch, auc_img, auc_px, ap_px):
                     save_model(name)
@@ -142,7 +142,7 @@ def tune(
         logger.scalars("epoch", [name, pk.epochs[name]])
     save_model("last")
 
-    logger.info(f"Tuning complete: {logger.model_name}@{logger.model_tag}")
+    logger.info(f"Tuning complete: {logger.model_name}")
 
 
 if __name__ == "__main__":
@@ -151,8 +151,9 @@ if __name__ == "__main__":
     class_name = get_class_name(args)
     class_dir = os.path.join(args.mvtec_dir, class_name)
     model_dir, model_name, model_tag = get_model_info(args)
+    tune_name = gen_model_name(args, class_name)
 
-    Logger.config("tune", args, model_name, model_tag)
+    Logger.config("tune", args, f"{tune_name}#{model_name}@{model_tag}")
 
     train_dataset = MVTecTrainDataset(
         class_dir=class_dir,
