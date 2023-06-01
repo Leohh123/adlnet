@@ -65,7 +65,7 @@ def tune(
     def save_model(tag):
         torch.save(
             discr_net.state_dict(),
-            os.path.join(args.checkpoint_dir, f"{logger.model_name}.seg")
+            os.path.join(args.checkpoint_dir, f"{logger.model_name}@{tag}.seg")
         )
 
     rules = [
