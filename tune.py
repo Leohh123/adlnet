@@ -95,7 +95,7 @@ def tune(
             mask_sm = torch.softmax(mask_pred, dim=1)
             mask_prob = mask_sm[:, 1:, ...]
 
-            loss = focal_loss(mask_prob, mask)
+            loss = focal_loss(mask_prob, mask, alpha=0.75)
 
             logger.info(
                 f"epoch: {epoch}",
