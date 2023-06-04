@@ -190,7 +190,7 @@ if __name__ == "__main__":
         # recon_net = ReconstructiveSubNetwork().cuda()
         # recon_net.apply(init_weights)
 
-        discr_net = DiscriminativeSubNetwork(in_channels=3).cuda()
+        discr_net = DiscriminativeSubNetwork(input_channels=3).cuda()
         discr_net.apply(init_weights)
 
         train(
