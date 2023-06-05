@@ -43,22 +43,18 @@ def get_args():
     return parser.parse_args()
 
 
-def train(
+def train_recon(
+    logger: Logger,
     train_dataset: MVTecTrainDataset,
     train_dataloader: DataLoader,
     test_dataset: MVTecTestDataset,
     test_dataloader: DataLoader,
     recon_net: ReconstructiveSubNetwork,
-    discr_net: DiscriminativeSubNetwork,
 ):
-    logger = Logger(__file__)
-
     recon_net.train()
-    discr_net.train()
 
     optimizer = torch.optim.Adam([
         {"params": recon_net.parameters(), "lr": args.lr},
-        {"params": discr_net.parameters(), "lr": args.lr}
     ])
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer, [args.epochs*0.6, args.epochs*0.8], gamma=0.2)
@@ -69,6 +65,85 @@ def train(
             recon_net.state_dict(),
             os.path.join(args.checkpoint_dir, f"{logger.model_name}@{tag}.rec")
         )
+
+    logger.info(f"Start training (recon): {logger.model_name}")
+
+    for epoch in range(1, args.epochs + 1):
+        logger.info(f"Epoch {epoch} (recon)")
+        losses = []
+
+        for i, batch in enumerate(train_dataloader):
+            img = batch["img"].cuda()
+            img_ano = batch["img_ano"].cuda()
+
+            img_rec = recon_net(img_ano)
+
+            loss_l2 = fn_l2(img_rec, img)
+            loss_ssim = ssim_loss(img_rec, img)
+
+            loss = loss_l2 + Const.W_SSIM * loss_ssim
+
+            logger.info(
+                f"epoch: {epoch}",
+                f"batch: {i}",
+                f"loss: {loss.item()}",
+                f"l2: {loss_l2.item()}",
+                f"ssim: {loss_ssim.item()}"
+            )
+            losses.append([
+                loss.item(), loss_l2.item(), loss_ssim.item()
+            ])
+
+            if (epoch == 1 and i % 5 == 0) or (epoch % 20 == 0 and i % 20 == 0):
+                img_name = batch["name"]
+                logger.info("Save images...")
+                logger.images("recon_img", img, img_name, epoch, i)
+                logger.images("recon_img_ano", img_ano, img_name, epoch, i)
+                logger.images("recon_img_rec", img_rec, img_name, epoch, i)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        # print(f"epoch {epoch}: avg_loss = {loss_count / cnt}")
+        avg, avg_l2, avg_ssim = np.array(losses).mean(axis=0).tolist()
+        losses.clear()
+
+        logger.scalars("recon_loss", [epoch, avg])
+        logger.scalars("recon_loss_l2", [epoch, avg_l2])
+        logger.scalars("recon_loss_ssim", [epoch, avg_ssim])
+
+        scheduler.step()
+
+    save_model("last")
+    save_model("ws")
+    save_model("sum")
+    save_model("auc-img")
+    save_model("auc-px")
+    save_model("ap-px")
+
+    logger.info(f"Training complete (recon): {logger.model_name}")
+
+
+def train_discr(
+    logger: Logger,
+    train_dataset: MVTecTrainDataset,
+    train_dataloader: DataLoader,
+    test_dataset: MVTecTestDataset,
+    test_dataloader: DataLoader,
+    recon_net: ReconstructiveSubNetwork,
+    discr_net: DiscriminativeSubNetwork,
+):
+    recon_net.eval()
+    discr_net.train()
+
+    optimizer = torch.optim.Adam([
+        {"params": discr_net.parameters(), "lr": args.lr}
+    ])
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer, [args.epochs*0.6, args.epochs*0.8], gamma=0.2)
+
+    def save_model(tag):
         torch.save(
             discr_net.state_dict(),
             os.path.join(args.checkpoint_dir, f"{logger.model_name}@{tag}.seg")
@@ -83,10 +158,10 @@ def train(
     ]
     pk = Picker(rules)
 
-    logger.info(f"Start training: {logger.model_name}")
+    logger.info(f"Start training (discr): {logger.model_name}")
 
     for epoch in range(1, args.epochs + 1):
-        logger.info(f"Epoch {epoch}")
+        logger.info(f"Epoch {epoch} (discr)")
         losses = []
 
         for i, batch in enumerate(train_dataloader):
@@ -101,47 +176,33 @@ def train(
             mask_sm = torch.softmax(mask_pred, dim=1)
             mask_prob = mask_sm[:, 1:, ...]
 
-            loss_l2 = fn_l2(img_rec, img)
-            loss_ssim = ssim_loss(img_rec, img)
-            loss_focal = focal_loss(mask_prob, mask, alpha=0.75)
-
-            loss = loss_l2 + Const.W_SSIM * loss_ssim + Const.W_FOCAL * loss_focal
+            loss = focal_loss(mask_prob, mask, alpha=0.75)
 
             logger.info(
                 f"epoch: {epoch}",
                 f"batch: {i}",
                 f"loss: {loss.item()}",
-                f"l2: {loss_l2.item()}",
-                f"ssim: {loss_ssim.item()}",
-                f"focal: {loss_focal.item()}"
             )
-            losses.append([
-                loss.item(), loss_l2.item(),
-                loss_ssim.item(), loss_focal.item()
-            ])
+            losses.append(loss.item())
 
             if (epoch == 1 and i % 5 == 0) or (epoch % 20 == 0 and i % 20 == 0):
                 img_name = batch["name"]
                 logger.info("Save images...")
-                logger.images("img", img, img_name, epoch, i)
-                logger.images("img_ano", img_ano, img_name, epoch, i)
-                logger.images("img_rec", img_rec, img_name, epoch, i)
-                logger.images("mask", mask, img_name, epoch, i)
-                logger.images("mask_prob", mask_prob, img_name, epoch, i)
+                logger.images("discr_img", img, img_name, epoch, i)
+                logger.images("discr_img_ano", img_ano, img_name, epoch, i)
+                logger.images("discr_img_rec", img_rec, img_name, epoch, i)
+                logger.images("discr_mask", mask, img_name, epoch, i)
+                logger.images("discr_mask_prob", mask_prob, img_name, epoch, i)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
         # print(f"epoch {epoch}: avg_loss = {loss_count / cnt}")
-        avg, avg_l2, avg_ssim, avg_focal = np.array(
-            losses).mean(axis=0).tolist()
+        avg = np.array(losses).mean()
         losses.clear()
 
-        logger.scalars("loss", [epoch, avg])
-        logger.scalars("loss_l2", [epoch, avg_l2])
-        logger.scalars("loss_ssim", [epoch, avg_ssim])
-        logger.scalars("loss_focal", [epoch, avg_focal])
+        logger.scalars("discr_loss", [epoch, avg])
 
         scheduler.step()
 
@@ -149,7 +210,6 @@ def train(
         if epoch % 20 == 0:
             auc_img, ap_img, auc_px, ap_px = test(
                 test_dataset, test_dataloader, recon_net, discr_net, False)
-            recon_net.train()
             discr_net.train()
             logger.scalars(
                 "result", [epoch, auc_img, ap_img, auc_px, ap_px])
@@ -163,7 +223,7 @@ def train(
         logger.scalars("epoch", [name, pk.epochs[name]])
     save_model("last")
 
-    logger.info(f"Training complete: {logger.model_name}")
+    logger.info(f"Training complete (discr): {logger.model_name}")
 
 
 if __name__ == "__main__":
@@ -206,7 +266,16 @@ if __name__ == "__main__":
         discr_net = DiscriminativeSubNetwork().cuda()
         discr_net.apply(init_weights)
 
-        train(
+        logger = Logger(__file__)
+
+        train_recon(
+            logger,
+            train_dataset, train_dataloader,
+            test_dataset, test_dataloader,
+            recon_net
+        )
+        train_discr(
+            logger,
             train_dataset, train_dataloader,
             test_dataset, test_dataloader,
             recon_net, discr_net
