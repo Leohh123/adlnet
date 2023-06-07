@@ -38,8 +38,12 @@ def get_args():
                         type=str, default="./checkpoint", help="checkpoint directory")
     parser.add_argument("--log-dir", "-ld", dest="log_dir", metavar="LD",
                         type=str, default="./log", help="log directory")
-    parser.add_argument("--num-workers", "-n", help="number of workers",
-                        type=int, default=0, dest="num_workers", metavar="N")
+    parser.add_argument("--num-workers", "-n", metavar="N",
+                        type=int, default=0, dest="num_workers", help="number of workers")
+    parser.add_argument("--with-mask", "-wm", help="training with mask (if exists)",
+                        action="store_true", dest="with_mask")
+    parser.add_argument("--mask-dir", "-msd", dest="mask_dir", metavar="MSD",
+                        type=str, default="./mask", help="mask images directory")
     return parser.parse_args()
 
 
@@ -176,8 +180,11 @@ if __name__ == "__main__":
     Logger.config("train", args, model_name)
 
     train_dataset = MVTecTrainDataset(
+        classno=args.classno,
         class_dir=class_dir,
         dtd_dir=args.dtd_dir,
+        mask_dir=args.mask_dir,
+        with_mask=args.with_mask,
         resize_shape=[256, 256],
         transform=ToTensor()
     )

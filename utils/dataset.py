@@ -14,7 +14,7 @@ from .anomaly_generator import AnomalyGenerator
 
 
 class MVTecTrainDataset(Dataset):
-    def __init__(self, class_dir, dtd_dir, outlined=False, resize_shape=None, transform=None):
+    def __init__(self, classno, class_dir, dtd_dir, mask_dir, with_mask=False, resize_shape=None, transform=None):
         self.logger = Logger(__file__)
         self.class_dir = class_dir
         self.img_paths = sorted(
@@ -22,17 +22,42 @@ class MVTecTrainDataset(Dataset):
         self.ano_gen = AnomalyGenerator(dtd_dir)
         self.resize_shape = resize_shape
         self.transform = transform
-        img_outline_path = os.path.join(class_dir, "train/outline.png")
-        if os.path.exists(img_outline_path) and outlined:
-            self.img_outline = cv2.imread(
-                img_outline_path, cv2.IMREAD_GRAYSCALE)
-            if self.resize_shape:
-                self.img_outline = cv2.resize(
-                    self.img_outline, dsize=list(reversed(self.resize_shape)))
-            self.logger.info(f"Outlined with image {img_outline_path}")
+        # img_outline_path = os.path.join(class_dir, "train/outline.png")
+        # if os.path.exists(img_outline_path) and with_mask:
+        #     self.img_outline = cv2.imread(
+        #         img_outline_path, cv2.IMREAD_GRAYSCALE)
+        #     if self.resize_shape:
+        #         self.img_outline = cv2.resize(
+        #             self.img_outline, dsize=list(reversed(self.resize_shape)))
+        #     self.logger.info(f"Outlined with image {img_outline_path}")
+        # else:
+        #     self.img_outline = None
+        #     self.logger.info("No outline")
+
+        self.classno = classno
+        self.class_name = Const.CLASS_NAMES[classno]
+        self.msk = None
+        if with_mask:
+            single_mask = os.path.join(mask_dir, f"{self.class_name}.png")
+            multi_mask = os.path.join(mask_dir, self.class_name)
+            if os.path.isfile(single_mask):
+                self.msk = single_mask
+                # self.msk = cv2.imread(single_mask, cv2.IMREAD_GRAYSCALE)
+                # if self.resize_shape:
+                #     self.msk = cv2.resize(self.msk, dsize=list(
+                #         reversed(self.resize_shape)))
+                self.logger.info(f"With single mask {single_mask}")
+            elif os.path.isdir(multi_mask):
+                self.msk = glob.glob(os.path.join(multi_mask, "*.png"))
+                # if self.resize_shape:
+                #     self.msk = list(map(lambda im: cv2.resize(
+                #         im, dsize=list(reversed(self.resize_shape))), self.msk))
+                self.logger.info(f"With multi mask {multi_mask}/*.png")
+            else:
+                raise Exception("Invalid mask")
         else:
-            self.img_outline = None
-            self.logger.info("No outline")
+            self.logger.info(f"Without mask")
+
         # self.rotate = iaa.Sometimes(
         #     Const.TRAIN_ROTEATE_PROP, iaa.Affine(rotate=(-90, 90)))
 
@@ -47,8 +72,17 @@ class MVTecTrainDataset(Dataset):
 
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)[:, :, [2, 1, 0]]
         # img = read_image(img_path, ImageReadMode.RGB)
+        cur_msk = None
+        if isinstance(self.msk, str):
+            cur_msk = cv2.imread(self.msk, cv2.IMREAD_GRAYSCALE)
+        elif isinstance(self.msk, list):
+            cur_msk = next(m for m in self.msk if m.find(img_name) != -1)
+            cur_msk = cv2.imread(cur_msk, cv2.IMREAD_GRAYSCALE)
         if self.resize_shape:
             img = cv2.resize(img, dsize=list(reversed(self.resize_shape)))
+            if cur_msk is not None:
+                cur_msk = cv2.resize(cur_msk, dsize=list(
+                    reversed(self.resize_shape)))
             # img = Resize(self.resize_shape)(img)
         # img = img.numpy().transpose(1, 2, 0)
 
@@ -56,7 +90,7 @@ class MVTecTrainDataset(Dataset):
         # img = self.rotate(image=img)
         # print("img(rotated).shape", img.shape)
 
-        img_ano, mask, tag = self.ano_gen.generate(img, self.img_outline)
+        img_ano, mask, tag = self.ano_gen.generate(img, cur_msk)
 
         rotate_prob = random()
         if rotate_prob < Const.TRAIN_ROTEATE_PROP:
