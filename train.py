@@ -180,9 +180,9 @@ if __name__ == "__main__":
     Logger.config("train", args, model_name)
 
     train_dataset = MVTecTrainDataset(
-        classno=args.classno,
         class_dir=class_dir,
         dtd_dir=args.dtd_dir,
+        classno=args.classno,
         mask_dir=args.mask_dir,
         with_mask=args.with_mask,
         resize_shape=[256, 256],

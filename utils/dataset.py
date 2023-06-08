@@ -14,7 +14,7 @@ from .anomaly_generator import AnomalyGenerator
 
 
 class MVTecTrainDataset(Dataset):
-    def __init__(self, classno, class_dir, dtd_dir, mask_dir, with_mask=False, resize_shape=None, transform=None):
+    def __init__(self, class_dir, dtd_dir, classno=None, mask_dir=None, with_mask=False, resize_shape=None, transform=None):
         self.logger = Logger(__file__)
         self.class_dir = class_dir
         self.img_paths = sorted(
@@ -34,10 +34,10 @@ class MVTecTrainDataset(Dataset):
         #     self.img_outline = None
         #     self.logger.info("No outline")
 
-        self.classno = classno
-        self.class_name = Const.CLASS_NAMES[classno]
         self.msk = None
         if with_mask:
+            self.classno = classno
+            self.class_name = Const.CLASS_NAMES[classno]
             single_mask = os.path.join(mask_dir, f"{self.class_name}.png")
             multi_mask = os.path.join(mask_dir, self.class_name)
             if os.path.isfile(single_mask):
