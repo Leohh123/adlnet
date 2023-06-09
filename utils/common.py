@@ -41,7 +41,7 @@ def gen_model_name(args, class_name=None):
 
 
 def get_class_name(args):
-    if hasattr(args, "classno") and args.classno is not None:
+    if hasattr(args, "classno") and args.classno is not None and args.classno != -1:
         return Const.CLASS_NAMES[args.classno]
     try:
         return next(
